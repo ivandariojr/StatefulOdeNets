@@ -30,6 +30,35 @@ def refine(net, variance=0.0):
         else:
             raise e
 
+
+class CtnConv2DODE(torch.nn.Module):
+    def __init__(self, time_d, in_channels, out_channels,
+                 width=1, padding=1):
+        super().__init__()
+        self.time_d = time_d
+        self.out_channels = out_channels
+        self.in_channels = in_channels
+        self.width = width
+        self.padding = padding
+        self.t_to_hidden = nn.Linear(1, 128)
+        self.hidden_to_conv = nn.Linear(128, out_channels*in_channels*width*width)
+        self.conv_tensor_shape = (out_channels, in_channels, width, width)
+        self.hidden_to_bias = nn.Linear(128, out_channels)
+
+        # self.weight = torch.nn.Parameter(
+        #     torch.randn(time_d, out_channels, in_channels, width, width))
+        # self.bias = torch.nn.Parameter(torch.zeros(time_d, out_channels))
+
+    def forward(self, t, x):
+        # Use the trick where it's the same as index selection
+        # t_idx = int(t * self.time_d)
+        # if t_idx == self.time_d: t_idx = self.time_d - 1
+        hidden = torch.relu(self.t_to_hidden(t[None]))
+        wij = self.hidden_to_conv(hidden).view(self.conv_tensor_shape)
+        bi = self.hidden_to_bias(hidden)
+        y = torch.nn.functional.conv2d(x, wij, bi, padding=self.padding)
+        return y
+
 class Conv2DODE(torch.nn.Module):
     def __init__(self, time_d, in_channels, out_channels,
                 width=1, padding=1):
@@ -87,7 +116,7 @@ class ShallowConv2DODE(torch.nn.Module):
         self.use_batch_norms = use_batch_norms
         self.use_skip_init = use_skip_init
         self.verbose=False
-        
+
         self.L1 = Conv2DODE(time_d, in_features, hidden_features,
                                     width=width, padding=padding)
         self.L2 = Conv2DODE(time_d, hidden_features, in_features,
@@ -362,15 +391,24 @@ class ODEBlock(torch.nn.Module):
         self.net = net
         
     def forward(self,x):
+        h = self.integrate(x)
+        self.h = h
+        return h[-1,:,:] #last element is prediction
+
+    def integrate(self, x):
+        ts = self.ts
         if self.use_adjoint:
             integ = torchdiffeq.odeint_adjoint
+            h = integ(self.net, x, ts, method=self.scheme,
+                      atol=1e-1, rtol=1e-2,
+                      adjoint_atol=1e-1, adjoint_rtol=1e-2,
+                      adjoint_options=dict(norm="seminorm")
+                      )
         else:
             integ = torchdiffeq.odeint
-        h = integ(self.net, x, self.ts, method=self.scheme,
-                  options=dict(enforce_openset=True)
-                 )[-1,:,:]
+            h = integ(self.net, x, ts, method=self.scheme)
         return h
-    
+
     def refine(self, variance=0.0):
         r_net = refine(self.net, variance)
         new = ODEBlock(r_net, self.n_time_steps*2, scheme=self.scheme).to(which_device(self))
