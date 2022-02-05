@@ -11,7 +11,7 @@ from continuous_net import datasets
 from continuous_net.helper import set_seed, get_device, which_device
 from continuous_net import refine_train
 from continuous_net import continuous_net, wide_continuous_net
-
+from pathlib import Path
 SAVE_DIR = 'results'
 #******************************************************************************
 # Create folder to save results
@@ -69,8 +69,12 @@ def do_a_train_set(
     if time_epsilon is None:
         time_epsilon = initial_time_d
 
+
     refset,trainset,trainloader,testset,testloader = \
-        datasets.get_dataset(dataset,root='../data/', batch_size=batch_size, test_batch_size=test_batch_size)
+        datasets.get_dataset(dataset,
+                             root=str(Path(__file__).parent.parent.parent / 'data'),
+                             batch_size=batch_size,
+                             test_batch_size=test_batch_size)
 
     if dataset=="CIFAR10":
         out_classes = 10
@@ -90,8 +94,8 @@ def do_a_train_set(
             ALPHA=ALPHA,
             scheme=scheme,
             time_d=initial_time_d,
-            in_channels=in_channels,
-            out_classes=out_classes,
+            n_in_channels=in_channels,
+            n_outputs=out_classes,
             use_batch_norms=use_batch_norms,
             time_epsilon=time_epsilon,
             n_time_steps_per=n_time_steps_per,
@@ -104,8 +108,8 @@ def do_a_train_set(
             ALPHA=ALPHA,
             scheme=scheme,
             time_d=initial_time_d,
-            in_channels=in_channels,
-            out_classes=out_classes,
+            n_in_channels=in_channels,
+            n_outputs=out_classes,
             use_batch_norms=use_batch_norms,
             time_epsilon=time_epsilon,
             n_time_steps_per=n_time_steps_per,
@@ -144,7 +148,10 @@ def do_a_train_set(
         N_epochs, N_adapt, lr=lr, lr_decay=lr_decay, epoch_update=epoch_update, weight_decay=weight_decay,
         refine_variance=refine_variance,
         device=device,
-        SAVE_DIR=SAVE_DIR, fname=fname)
+        SAVE_DIR=SAVE_DIR, fname=fname,
+        # criterion_per_el=lambda x, y: F.mse_loss(input=x, target=20.*F.one_hot(y, num_classes=10).to(x.dtype)-10., reduction='none')
+        criterion_per_el=torch.nn.CrossEntropyLoss(reduction='none')
+    )
 
     try:
         os.mkdir(SAVE_DIR)

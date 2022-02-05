@@ -22,8 +22,8 @@ class ContinuousNet(nn.Module):
                  ALPHA=16,
                  scheme='euler',
                  time_d=1,
-                 in_channels=3,
-                 out_classes=10,
+                 n_in_channels=3,
+                 n_outputs=10,
                  use_batch_norms=True,
                  time_epsilon=1.0,
                  n_time_steps_per=1,
@@ -81,12 +81,12 @@ class ContinuousNet(nn.Module):
             nn.BatchNorm2d(4 * ALPHA, momentum=0.9) if activation_before_conv else None,
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(4 * ALPHA, out_classes)
+            nn.Linear(4 * ALPHA, n_outputs)
         )
         # The full network, with three OdeBlocks (_macro)
         self.net = NoSequential(
             nn.Conv2d(
-                in_channels, ALPHA, kernel_size=3, padding=1, bias=False),
+                n_in_channels, ALPHA, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(ALPHA) if use_batch_norms else None,
             nn.ReLU(),
             _stitch_macro(ALPHA, ALPHA, stride=1),
@@ -98,7 +98,14 @@ class ContinuousNet(nn.Module):
             self.output
         )
 
+        flat_module_list = list()
         for m in self.modules():
+            if isinstance(m, list):
+                flat_module_list += m
+            else:
+                flat_module_list += [m]
+
+        for m in flat_module_list:
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))

@@ -363,7 +363,7 @@ class SkipInitODE(nn.Module):
     def __init__(self, time_d):
         super().__init__()
         self.time_d = time_d
-        self.weight = nn.Parameter(torch.zeros(time_d).float())
+        self.weight = nn.Parameter(torch.randn(time_d).float())
 
     def forward(self, t, x):
         t_idx = int(t*self.time_d)
@@ -387,7 +387,7 @@ class ODEBlock(torch.nn.Module):
         self.scheme = scheme
         self.use_adjoint = use_adjoint
         # TODO: awk with piecewise constant centered on the half-cells
-        self.ts = torch.linspace(0, 1.0, self.n_time_steps+1)
+        self.register_buffer("ts", torch.linspace(0, 1.0, self.n_time_steps+1))
         self.net = net
         
     def forward(self,x):

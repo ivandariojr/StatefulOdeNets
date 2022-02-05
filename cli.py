@@ -21,10 +21,11 @@ parser.add_argument('--refine', type=int, nargs='+', default=[], help='refine th
 parser.add_argument('--initial_time_d', type=int, default=3, help="initial time refinement--ie, number of layers--of each segment")
 parser.add_argument('--n_time_steps_per', type=int, default=1, help="number of time-steps per time_d to take during forward pass")
 parser.add_argument('--time_epsilon', type=float, default=None, help="How long is the depth-time")
-parser.add_argument('--batch_norm', default=True, help='include batch norm layers', action='store_true')
+parser.add_argument('--batch_norm', help='include batch norm layers', action='store_true')
 parser.add_argument('--use_skipinit', default=False, help='use skip init', action='store_true')
 parser.add_argument('--seed', type=int, default='1',  help='Seed value')
 parser.add_argument('--device', type=str, default=None, help='Which pytorch device?')
+parser.add_argument('--use_adjoint',  action='store_true', help='Use adjoint method')
 
 args = parser.parse_args()
 
@@ -47,6 +48,8 @@ def drive_by_args(args):
         use_skip_init = args.use_skipinit,
         weight_decay = args.weight_decay,
         seed = args.seed,
-        device = args.device)
+        device = args.device,
+        use_adjoint=args.use_adjoint
+    )
 
 drive_by_args(args)
